@@ -1,11 +1,11 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Services;
 
 use App\Models\Club;
 use App\Models\League;
 use App\Services\MatchService;
-use Mockery;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class MatchServiceTest extends TestCase
@@ -19,7 +19,7 @@ class MatchServiceTest extends TestCase
         $this->matchService = new MatchService();
     }
 
-    public function provider(): array
+    public static function provider(): array
     {
         return [
             [3, 1, 6],
@@ -32,11 +32,8 @@ class MatchServiceTest extends TestCase
         ];
     }
 
-    /**
-     * @test
-     * @dataProvider provider
-     */
-    public function create(int $numberOfClubs, int $gamesPerWeek, int $expectedWeeks): void
+    #[DataProvider('provider')]
+    function test_create(int $numberOfClubs, int $gamesPerWeek, int $expectedWeeks): void
     {
         $league = League::factory()->create([
             'name' => 'Premier League',
@@ -82,11 +79,5 @@ class MatchServiceTest extends TestCase
             // check each club will play equally right amount of game
             $this->assertEquals(($numberOfClubs - 1) *2 , $c);
         }
-    }
-
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();  // Call the parent teardown method
     }
 }

@@ -2,56 +2,61 @@
 
 namespace App\Services;
 
-use App\Models\Club;
-use App\Models\League;
-use App\Models\LeagueClub;
+use App\Repositories\Contracts\ClubRepositoryInterface;
+use App\Repositories\Contracts\LeagueRepositoryInterface;
+use Illuminate\Support\Facades\DB;
 
 class LeagueService
 {
+    public function __construct(
+        private LeagueRepositoryInterface $leagueRepository,
+        private ClubRepositoryInterface $clubRepository,
+        private LeagueClubService $leagueClubService
+    )
+    {    
+    }
+
     public function create(string $sessionId): array
     {
-        //check if league already exists
-        if (League::query()->where('ulid', $sessionId)->exists()) {
-            return [
-                'data' => [
-                    'message' => 'Resource already exists',
-                    'data' => $this->get($sessionId)
-                ],
-                'status' => 409
-            ];
-        }
+        return DB::transaction(function () use ($sessionId) {
+            if ($this->leagueRepository->exists($sessionId)) {
+                return $this->leagueAlreadyExistsResponse( $sessionId);
+            }
+    
+            $league = $this->leagueRepository->create([
+                'name' => 'Premier league',
+                'ulid' => $sessionId,
+            ]);
+            $clubIds = $this->clubRepository->pluck('id');
+            $this->leagueClubService->associateClubsWithLeague($league['id'],$clubIds);
+    
+            return $this->leagueCreatedResponse($sessionId);
+        });
+    }
 
-        // create new league
-        $league = League::create([
-            'name' => 'Premier league',
-            'ulid' => $sessionId,
-        ]);
-        
+    public function get(string $sessionId): array
+    {
+        return $this->leagueRepository->getWithClubs($sessionId); 
+    }
 
-        // Prepare bulk insert data
-        $clubIds = Club::all()->pluck('id');
-        $data = $clubIds->map(fn($clubId) => [
-            'club_id' => $clubId,
-            'league_id' => $league->id
-        ])->toArray();
+    private function leagueAlreadyExistsResponse(string $sessionId): array
+    {
+        return [
+            'data' => [
+                'message' => 'Resource already exists',
+                'data' => $this->get($sessionId)
+            ],
+            'status' => 409
+        ];
+    }
 
-        // Bulk insert league-club relationships
-        LeagueClub::query()->insert($data);
-
+    private function leagueCreatedResponse(string $sessionId): array
+    {
         return [
             'data' => [
                 'data' => $this->get($sessionId)
             ],
             'status' => 201
         ];
-    }
-
-    public function get(string $sessionId): array
-    {
-        return League::query()
-            ->where('ulid', $sessionId)
-            ->with('clubs')
-            ->firstOrFail()
-            ->toArray(); 
     }
 }
