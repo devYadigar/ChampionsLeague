@@ -9,7 +9,7 @@ class EntityRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'session_id' => ['required', 'string'],
+            'session_id' => ['required', 'string', 'regex:/^[0-9A-HJKMNP-TV-Z]{26}$/'],
             'week' => ['nullable', 'int']
         ];
     }
